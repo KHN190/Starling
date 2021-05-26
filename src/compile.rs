@@ -198,10 +198,10 @@ struct Parser
   token_start: String,
 
   // The current character being lexed in [source].
-  current_char: String,
+  current_char_i: usize,
 
   // The 1-based line number of [currentChar].
-  current_line: i32,
+  current_line: usize,
 
   // The upcoming token.
   next: Token,
@@ -225,8 +225,8 @@ struct Parser
   // This tracks that state. The parser maintains a stack of ints, one for each
   // level of current interpolation nesting. Each value is the number of
   // unmatched "(" that are waiting to be closed.
-  parens: [i32; MAX_INTERPOLATION_NESTING],
-  num_parens: i32,
+  parens: [usize; MAX_INTERPOLATION_NESTING],
+  num_parens: usize,
 
   // Whether compile errors should be printed to stderr or discarded.
   print_errors: bool,
@@ -257,17 +257,117 @@ struct Parser
 //                              module_name, line, message);
 // }
 //
-impl Parser {
-    pub fn print_errors(self: Self, line: i32, label: &str, format: &str, ) {
 
-    }
+fn is_name(c: char) -> bool {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
-// // Outputs a lexical error.
-// static void lexError(Parser* parser, const char* format, ...)
-// {
-//   va_list args;
-//   va_start(args, format);
-//   printError(parser, parser->currentLine, "Error", format, args);
-//   va_end(args);
-// }
+fn is_digit(c: char) -> bool {
+    return c >= '0' && c <= '9';
+}
+
+impl Parser {
+    // @todo
+    //   configurable with args
+    fn print_error(&self, line: usize, label: &str, format: &str) {
+        unimplemented!()
+    }
+
+    // @todo
+    //   configurable with args
+    // Outputs a lexical error.
+    fn lex_error(&self, format: &str) {
+        self.print_error(self.current_line, "Error", format);
+    }
+
+    fn peek_char(&self) -> char {
+        self.source.chars().nth(self.current_char_i).unwrap_or('\0')
+    }
+
+    fn peek_next_char(&self) -> char {
+        self.source.chars().nth(self.current_char_i + 1).unwrap_or('\0')
+    }
+
+    fn next_char(&mut self) -> char {
+        let c = self.peek_char();
+        self.current_char_i += 1;
+        if c == '\n' { self.current_line += 1; }
+        c
+    }
+
+    fn match_char(&mut self, c: char) -> bool {
+        if self.peek_char() != c { return false; }
+        self.next_char();
+        true
+    }
+
+    // Sets the parser's current token to the given [type] and current character
+    // range.
+    fn make_token(&self) { unimplemented!() }
+
+    // If the current character is [c], then consumes it and makes a token of type
+    // [two]. Otherwise makes a token of type [one].
+    fn two_char_token(&self, c: char, two: Token, one: Token) { unimplemented!() }
+
+    // Skips the rest of the current line.
+    fn skip_line_comment(&mut self) {
+        while self.peek_char() != '\n' && self.peek_char() != '\0' {
+            self.next_char();
+        }
+    }
+
+    // Skips the rest of a block comment.
+    fn skip_block_comment(&mut self) {
+        let mut nesting: usize = 1;
+        while nesting > 0 {
+            if self.peek_char() == '\0' {
+                self.lex_error("Unterminated block comment.");
+                return;
+            }
+
+            if self.peek_char() == '/' && self.peek_next_char() == '*' {
+                self.next_char();
+                self.next_char();
+                nesting += 1;
+                continue;
+            }
+
+            if self.peek_char() == '*' && self.peek_next_char() == '/' {
+                self.next_char();
+                self.next_char();
+                nesting -= 1;
+                continue;
+            }
+            // Regular comment character.
+            self.next_char();
+        }
+    }
+
+    // Reads the next character, which should be a hex digit (0-9, a-f, or A-F) and
+    // returns its numeric value. If the character isn't a hex digit, returns -1.
+    fn read_hex_digit(&mut self) -> i32 {
+        let c = self.next_char();
+        if c >= '0' && c <= '9' { return (c as i32) - ('0' as i32); }
+        if c >= 'a' && c <= 'f' { return (c as i32) - ('a' as i32) + 10; }
+        if c >= 'A' && c <= 'F' { return (c as i32) - ('A' as i32) + 10; }
+
+        // Don't consume it if it isn't expected. Keeps us from reading past the end
+        // of an unterminated string.
+        self.current_char_i -= 1;
+
+        -1
+    }
+
+    // Parses the numeric value of the current token.
+    fn make_number(&self, is_hex: bool) { unimplemented!() }
+
+    // Finishes lexing a hexadecimal number literal.
+    fn read_hex_number(&mut self) {
+        // Skip past the `x` used to denote a hexadecimal literal.
+        self.next_char();
+        // Iterate over all the valid hexadecimal digits found.
+        while self.read_hex_digit() != -1 { continue; }
+
+        self.make_number(true);
+    }
+}
