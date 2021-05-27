@@ -1,6 +1,6 @@
 use crate::common::MAX_VARIABLE_NAME;
-use crate::vm::WrenVM;
 use crate::value::*;
+use crate::vm::WrenVM;
 
 // This is written in bottom-up order, so the tokenization comes first, then
 // parsing/code generation. This minimizes the number of explicit forward
@@ -43,90 +43,90 @@ pub(crate) const ERROR_MESSAGE_SIZE: i32 = 80 + MAX_VARIABLE_NAME + 15;
 
 #[allow(dead_code, non_camel_case_types)]
 enum TokenType {
-  LEFT_PAREN,
-  RIGHT_PAREN,
-  LEFT_BRACKET,
-  RIGHT_BRACKET,
-  LEFT_BRACE,
-  RIGHT_BRACE,
-  COLON,
-  DOT,
-  DOTDOT,
-  DOTDOTDOT,
-  COMMA,
-  STAR,
-  SLASH,
-  PERCENT,
-  HASH,
-  PLUS,
-  MINUS,
-  LTLT,
-  GTGT,
-  PIPE,
-  PIPEPIPE,
-  CARET,
-  AMP,
-  AMPAMP,
-  BANG,
-  TILDE,
-  QUESTION,
-  EQ,
-  LT,
-  GT,
-  LTEQ,
-  GTEQ,
-  EQEQ,
-  BANGEQ,
+    LEFT_PAREN,
+    RIGHT_PAREN,
+    LEFT_BRACKET,
+    RIGHT_BRACKET,
+    LEFT_BRACE,
+    RIGHT_BRACE,
+    COLON,
+    DOT,
+    DOTDOT,
+    DOTDOTDOT,
+    COMMA,
+    STAR,
+    SLASH,
+    PERCENT,
+    HASH,
+    PLUS,
+    MINUS,
+    LTLT,
+    GTGT,
+    PIPE,
+    PIPEPIPE,
+    CARET,
+    AMP,
+    AMPAMP,
+    BANG,
+    TILDE,
+    QUESTION,
+    EQ,
+    LT,
+    GT,
+    LTEQ,
+    GTEQ,
+    EQEQ,
+    BANGEQ,
 
-  BREAK,
-  CONTINUE,
-  CLASS,
-  CONSTRUCT,
-  ELSE,
-  FALSE,
-  FOR,
-  FOREIGN,
-  IF,
-  IMPORT,
-  AS,
-  IN,
-  IS,
-  NULL,
-  RETURN,
-  STATIC,
-  SUPER,
-  THIS,
-  TRUE,
-  VAR,
-  WHILE,
+    BREAK,
+    CONTINUE,
+    CLASS,
+    CONSTRUCT,
+    ELSE,
+    FALSE,
+    FOR,
+    FOREIGN,
+    IF,
+    IMPORT,
+    AS,
+    IN,
+    IS,
+    NULL,
+    RETURN,
+    STATIC,
+    SUPER,
+    THIS,
+    TRUE,
+    VAR,
+    WHILE,
 
-  FIELD,
-  STATIC_FIELD,
-  NAME,
-  NUMBER,
+    FIELD,
+    STATIC_FIELD,
+    NAME,
+    NUMBER,
 
-  // A string literal without any interpolation, or the last section of a
-  // string following the last interpolated expression.
-  STRING,
+    // A string literal without any interpolation, or the last section of a
+    // string following the last interpolated expression.
+    STRING,
 
-  // A portion of a string literal preceding an interpolated expression. This
-  // string:
-  //
-  //     "a %(b) c %(d) e"
-  //
-  // is tokenized to:
-  //
-  //     INTERPOLATION "a "
-  //     NAME          b
-  //     INTERPOLATION " c "
-  //     NAME          d
-  //     STRING        " e"
-  INTERPOLATION,
+    // A portion of a string literal preceding an interpolated expression. This
+    // string:
+    //
+    //     "a %(b) c %(d) e"
+    //
+    // is tokenized to:
+    //
+    //     INTERPOLATION "a "
+    //     NAME          b
+    //     INTERPOLATION " c "
+    //     NAME          d
+    //     STRING        " e"
+    INTERPOLATION,
 
-  LINE,
+    LINE,
 
-  ERROR,
-  EOF
+    ERROR,
+    EOF,
 }
 
 struct Keyword {
@@ -134,9 +134,18 @@ struct Keyword {
     token_type: TokenType,
 }
 
+impl Keyword {
+    pub fn len(&self) -> usize {
+        self.identifier.len()
+    }
+}
+
 macro_rules! define_keyword {
     ($id:expr, $ty:tt) => {
-        Keyword { identifier: $id, token_type: TokenType::$ty }
+        Keyword {
+            identifier: $id,
+            token_type: TokenType::$ty,
+        }
     };
 }
 
@@ -167,96 +176,71 @@ static KEYWORDS: &'static [Keyword] = &[
     define_keyword!("", EOF), // @todo ??
 ];
 
-struct Token
-{
-  ty: TokenType,
+struct Token {
+    ty: TokenType,
 
-  // The beginning of the token, pointing directly into the source.
-  start: String, // @todo ??
+    // The beginning of the token, pointing directly into the source.
+    start: String, // @todo ??
 
-  // The length of the token in characters.
-  length: i32,
+    // The length of the token in characters.
+    length: i32,
 
-  // The 1-based line where the token appears.
-  line: i32,
+    // The 1-based line where the token appears.
+    line: i32,
 
-  // The parsed value if the token is a literal.
-  value: Value,
+    // The parsed value if the token is a literal.
+    value: Value,
 }
 
-struct Parser
-{
-  vm: WrenVM,
+struct Parser {
+    vm: WrenVM,
 
-  // The module being parsed.
-  module: ObjModule,
+    // The module being parsed.
+    module: ObjModule,
 
-  // The source code being parsed.
-  source: String,
+    // The source code being parsed.
+    source: String,
 
-  // The beginning of the currently-being-lexed token in [source].
-  token_start: String,
+    // The beginning of the currently-being-lexed token in [source].
+    token_start: usize,
 
-  // The current character being lexed in [source].
-  current_char_i: usize,
+    // The current character being lexed in [source].
+    current_char_i: usize,
 
-  // The 1-based line number of [currentChar].
-  current_line: usize,
+    // The 1-based line number of [currentChar].
+    current_line: usize,
 
-  // The upcoming token.
-  next: Token,
+    // The upcoming token.
+    next: Token,
 
-  // The most recently lexed token.
-  current: Token,
+    // The most recently lexed token.
+    current: Token,
 
-  // The most recently consumed/advanced token.
-  previous: Token,
+    // The most recently consumed/advanced token.
+    previous: Token,
 
-  // Tracks the lexing state when tokenizing interpolated strings.
-  //
-  // Interpolated strings make the lexer not strictly regular: we don't know
-  // whether a ")" should be treated as a RIGHT_PAREN token or as ending an
-  // interpolated expression unless we know whether we are inside a string
-  // interpolation and how many unmatched "(" there are. This is particularly
-  // complex because interpolation can nest:
-  //
-  //     " %( " %( inner ) " ) "
-  //
-  // This tracks that state. The parser maintains a stack of ints, one for each
-  // level of current interpolation nesting. Each value is the number of
-  // unmatched "(" that are waiting to be closed.
-  parens: [usize; MAX_INTERPOLATION_NESTING],
-  num_parens: usize,
+    // Tracks the lexing state when tokenizing interpolated strings.
+    //
+    // Interpolated strings make the lexer not strictly regular: we don't know
+    // whether a ")" should be treated as a RIGHT_PAREN token or as ending an
+    // interpolated expression unless we know whether we are inside a string
+    // interpolation and how many unmatched "(" there are. This is particularly
+    // complex because interpolation can nest:
+    //
+    //     " %( " %( inner ) " ) "
+    //
+    // This tracks that state. The parser maintains a stack of ints, one for each
+    // level of current interpolation nesting. Each value is the number of
+    // unmatched "(" that are waiting to be closed.
+    parens: [usize; MAX_INTERPOLATION_NESTING],
+    num_parens: usize,
 
-  // Whether compile errors should be printed to stderr or discarded.
-  print_errors: bool,
+    // Whether compile errors should be printed to stderr or discarded.
+    print_errors: bool,
 
-  // If a syntax or compile error has occurred.
-  has_error: bool,
+    // If a syntax or compile error has occurred.
+    has_error: bool,
 }
-//
-// static void printError(Parser* parser, int line, const char* label,
-//                        const char* format, va_list args)
-// {
-//   parser->hasError = true;
-//   if (!parser->printErrors) return;
-//
-//   // Only report errors if there is a WrenErrorFn to handle them.
-//   if (parser->vm->config.errorFn == NULL) return;
-//
-//   // Format the label and message.
-//   char message[ERROR_MESSAGE_SIZE];
-//   int length = sprintf(message, "%s: ", label);
-//   length += vsprintf(message + length, format, args);
-//   ASSERT(length < ERROR_MESSAGE_SIZE, "Error should not exceed buffer.");
-//
-//   ObjString* module = parser->module->name;
-//   const char* module_name = module ? module->value : "<unknown>";
-//
-//   parser->vm->config.errorFn(parser->vm, WREN_ERROR_COMPILE,
-//                              module_name, line, message);
-// }
-//
 
 fn is_name(c: char) -> bool {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
@@ -280,34 +264,49 @@ impl Parser {
         self.print_error(self.current_line, "Error", format);
     }
 
+    fn read_token_str(&self, length: usize) -> &str {
+        &self.source[self.token_start..self.token_start + length]
+    }
+
     fn peek_char(&self) -> char {
         self.source.chars().nth(self.current_char_i).unwrap_or('\0')
     }
 
     fn peek_next_char(&self) -> char {
-        self.source.chars().nth(self.current_char_i + 1).unwrap_or('\0')
+        self.source
+            .chars()
+            .nth(self.current_char_i + 1)
+            .unwrap_or('\0')
     }
 
     fn next_char(&mut self) -> char {
         let c = self.peek_char();
         self.current_char_i += 1;
-        if c == '\n' { self.current_line += 1; }
+        if c == '\n' {
+            self.current_line += 1;
+        }
         c
     }
 
     fn match_char(&mut self, c: char) -> bool {
-        if self.peek_char() != c { return false; }
+        if self.peek_char() != c {
+            return false;
+        }
         self.next_char();
         true
     }
 
     // Sets the parser's current token to the given [type] and current character
     // range.
-    fn make_token(&self) { unimplemented!() }
+    fn make_token(&self) {
+        unimplemented!()
+    }
 
     // If the current character is [c], then consumes it and makes a token of type
     // [two]. Otherwise makes a token of type [one].
-    fn two_char_token(&self, c: char, two: Token, one: Token) { unimplemented!() }
+    fn two_char_token(&self, c: char, two: Token, one: Token) {
+        unimplemented!()
+    }
 
     // Skips the rest of the current line.
     fn skip_line_comment(&mut self) {
@@ -347,9 +346,15 @@ impl Parser {
     // returns its numeric value. If the character isn't a hex digit, returns -1.
     fn read_hex_digit(&mut self) -> i32 {
         let c = self.next_char();
-        if c >= '0' && c <= '9' { return (c as i32) - ('0' as i32); }
-        if c >= 'a' && c <= 'f' { return (c as i32) - ('a' as i32) + 10; }
-        if c >= 'A' && c <= 'F' { return (c as i32) - ('A' as i32) + 10; }
+        if c >= '0' && c <= '9' {
+            return (c as i32) - ('0' as i32);
+        }
+        if c >= 'a' && c <= 'f' {
+            return (c as i32) - ('a' as i32) + 10;
+        }
+        if c >= 'A' && c <= 'F' {
+            return (c as i32) - ('A' as i32) + 10;
+        }
 
         // Don't consume it if it isn't expected. Keeps us from reading past the end
         // of an unterminated string.
@@ -359,15 +364,75 @@ impl Parser {
     }
 
     // Parses the numeric value of the current token.
-    fn make_number(&self, is_hex: bool) { unimplemented!() }
+    fn make_number(&self, is_hex: bool) {
+        unimplemented!()
+    }
 
     // Finishes lexing a hexadecimal number literal.
     fn read_hex_number(&mut self) {
         // Skip past the `x` used to denote a hexadecimal literal.
         self.next_char();
         // Iterate over all the valid hexadecimal digits found.
-        while self.read_hex_digit() != -1 { continue; }
-
+        while self.read_hex_digit() != -1 {
+            continue;
+        }
         self.make_number(true);
+    }
+
+    // Finishes lexing a number literal.
+    fn read_number(&mut self) {
+        while is_digit(self.peek_char()) {
+            self.next_char();
+        }
+
+        // See if it has a floating point. Make sure there is a digit after the "."
+        // so we don't get confused by method calls on number literals.
+        if self.peek_char() == '.' && is_digit(self.peek_next_char()) {
+            self.next_char();
+            while is_digit(self.peek_char()) {
+                self.next_char();
+            }
+        }
+
+        // See if the number is in scientific notation.
+        if self.match_char('e') || self.match_char('E') {
+            // Allow a single positive/negative exponent symbol.
+            if !self.match_char('+') {
+                self.match_char('-');
+            }
+            if !is_digit(self.peek_char()) {
+                self.lex_error("Unterminated scientific notation.");
+            }
+            while is_digit(self.peek_char()) {
+                self.next_char();
+            }
+        }
+        self.make_number(false);
+    }
+
+    // Finishes lexing an identifier. Handles reserved words.
+    fn read_name(&mut self, ty: &TokenType, first_char: char) {
+        let mut buffer = vec![];
+        buffer.push(first_char);
+
+        while is_name(self.peek_char()) || is_digit(self.peek_char()) {
+            buffer.push(self.next_char());
+        }
+        // Update the type if it's a keyword.
+        let mut token_ty = ty.clone();
+        let length = self.current_char_i - self.token_start;
+        for kw in KEYWORDS {
+            if length == kw.len() && self.read_token_str(length) == kw.identifier {
+                token_ty = &kw.token_type;
+            }
+        }
+
+        unimplemented!();
+        //   parser->next.value = wrenNewStringLength(parser->vm,
+        //                                             (char*)string.data, string.count);
+        //
+        //   wrenByteBufferClear(parser->vm, &string);
+        //   makeToken(parser, type);
+        // }
     }
 }

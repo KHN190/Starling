@@ -1,8 +1,8 @@
 mod common;
 mod compile;
 mod core;
-mod vm;
 mod value;
+mod vm;
 
 fn main() {
     println!("Hello, world!");
