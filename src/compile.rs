@@ -298,7 +298,7 @@ impl Parser {
 
     // Sets the parser's current token to the given [type] and current character
     // range.
-    fn make_token(&self) {
+    fn make_token(&self, ty: TokenType) {
         unimplemented!()
     }
 
@@ -434,5 +434,104 @@ impl Parser {
         //   wrenByteBufferClear(parser->vm, &string);
         //   makeToken(parser, type);
         // }
+    }
+
+    // Reads [digits] hex digits in a string literal and returns their number value.
+    fn read_hex_escape(&self, digits: i32, description: &str) {
+        unimplemented!();
+    }
+
+    // Reads a hex digit Unicode escape sequence in a string literal.
+    fn read_unicode_escape(&self, byte_buffer: &[i32], length: usize) {
+        unimplemented!();
+    }
+
+    fn read_raw_string(&mut self) {
+        let mut string: Vec<char> = vec![];
+        let mut ty = TokenType::STRING;
+
+        //consume the second and third "
+        self.next_char();
+        self.next_char();
+
+        let mut skip_start: i32 = 0;
+        let mut first_new_line: i32 = -1;
+
+        let mut skip_end: i32 = -1;
+        let mut last_new_line: i32 = -1;
+
+        loop {
+            let c = self.next_char();
+            let c1 = self.peek_char();
+            let c2 = self.peek_next_char();
+
+            if c == '"' && c1 == '"' && c2 == '"' {
+                break;
+            }
+
+            match c {
+                '\r' => {
+                    continue;
+                }
+                '\n' => {
+                    last_new_line = string.len() as i32;
+                    skip_end = last_new_line;
+                    if first_new_line == -1 {
+                        first_new_line = string.len() as i32
+                    }
+                }
+                _ => {}
+            }
+
+            let is_whitespace = c == ' ' || c == '\t';
+            if c == '\n' || is_whitespace {
+                skip_end = 1;
+            }
+
+            // If we haven't seen a newline or other character yet,
+            // and still seeing whitespace, count the characters
+            // as skippable till we know otherwise
+            let skippable = skip_start != -1 && is_whitespace && first_new_line == -1;
+            if skippable {
+                skip_start = string.len() as i32 + 1;
+            }
+
+            // We've counted leading whitespace till we hit something else,
+            // but it's not a newline, so we reset skipStart since we need these characters
+            // if (firstNewline == -1 && !isWhitespace && c != '\n') skipStart = -1;
+            if first_new_line == -1 && !is_whitespace && c != '\n' {
+                skip_start = -1;
+            }
+
+            if c == '\0' || c1 == '\0' || c2 == '\0' {
+                self.lex_error("Unterminated raw string.");
+                // Don't consume it if it isn't expected. Keeps us from reading past the
+                // end of an unterminated string.
+                self.current_char_i -= 1;
+                break;
+            }
+
+            string.push(c);
+        }
+
+        // consume the second and third "
+        self.next_char();
+        self.next_char();
+
+        let mut offset: i32 = 0;
+        let mut count: i32 = string.len() as i32;
+
+        if first_new_line != -1 && skip_start == first_new_line {
+            offset = first_new_line + 1;
+        }
+        if last_new_line != -1 && skip_end == last_new_line {
+            count = last_new_line;
+        }
+        if offset > count { count = 0; } else { count -= offset; }
+
+        // @todo!()
+        // self.next.value = wren_new_string_length(string, offset, count);
+
+        self.make_token(ty);
     }
 }
