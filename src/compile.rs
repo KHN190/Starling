@@ -527,7 +527,11 @@ impl Parser {
         if last_new_line != -1 && skip_end == last_new_line {
             count = last_new_line;
         }
-        if offset > count { count = 0; } else { count -= offset; }
+        if offset > count {
+            count = 0;
+        } else {
+            count -= offset;
+        }
 
         // @todo!()
         // self.next.value = wren_new_string_length(string, offset, count);
